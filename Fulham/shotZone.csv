@@ -1,0 +1,5 @@
+Statistic,stat,shots,goals,xG
+ownGoals,ownGoals,1,1,1.0
+shotOboxTotal,shotOboxTotal,52,5,1.8401533234864473
+shotPenaltyArea,shotPenaltyArea,73,5,8.506712244823575
+shotSixYardBox,shotSixYardBox,9,2,2.0684786308556795
