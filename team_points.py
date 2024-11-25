@@ -86,4 +86,3 @@ def process_team_data(csv_file, current_dir):
     # Map points to teams
     return map_points_to_teams(directory_names, points_2014, points_2019)
 
-df_tp = process_team_data(csv_file='./pl-tables-1993-2024.csv', current_dir=os.getcwd())
