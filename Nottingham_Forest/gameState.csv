@@ -1,0 +1,6 @@
+Statistic,stat,time,shots,goals,xG
+Goal diff 0,Goal diff 0,659,89,4,8.542946576140821
+Goal diff +1,Goal diff +1,272,40,6,3.9924548910930753
+Goal diff -1,Goal diff -1,131,22,2,1.9075098829343915
+Goal diff > +1,Goal diff > +1,60,5,0,0.15850078780204058
+Goal diff < -1,Goal diff < -1,44,8,1,0.4873956087976694
