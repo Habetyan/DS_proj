@@ -233,3 +233,4 @@ async def scrape_team_links_and_statistics():
 
 if __name__ == "__main__":
     asyncio.run(scrape_team_links_and_statistics())
+
