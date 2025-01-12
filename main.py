@@ -7,9 +7,6 @@ if __name__ == "__main__":
         who_scored_csv="./premier_league_stats.csv"
     )
 
-    with open("final_output.csv", "w", newline="", encoding="utf-8") as f:
-        df.to_csv(f, index=False)
-
-    # Do whatever you want with df
-    print(df.head())
+    df.to_csv('final_output.csv',index=False, encoding="utf-8")
+    print(df)
 

@@ -7,22 +7,17 @@ def scrape_table():
     url = 'https://www.whoscored.com/Regions/252/Tournaments/2/Seasons/10316/Stages/23400/TeamStatistics/England-Premier-League-2024-2025'
 
     with sync_playwright() as p:
-        # Launch the browser in headless mode
-        browser = p.chromium.launch(headless=False)  # Set to False for debugging purposes
+        browser = p.chromium.launch(headless=False)
         page = browser.new_page()
 
-        # Navigate to the URL
         print("Navigating to the URL...")
-        page.goto(url, timeout=180000)
+        page.goto(url, timeout=18000)
 
-        # Introduce a delay to allow the page to load completely
         print("Waiting for the page to load...")
-        time.sleep(10)  # Adjust the delay as needed
-
-        # Check if the table is present
+        time.sleep(10)
         try:
             print("Waiting for the table to load...")
-            page.wait_for_selector('#top-team-stats-summary-grid', timeout=60000)  # Increased timeout
+            page.wait_for_selector('#top-team-stats-summary-grid', timeout=6000)
         except Exception as e:
             print(f"Error: {e}")
             print("Table did not load. Exiting...")
@@ -55,19 +50,18 @@ def scrape_table():
                 if row.find_all('td')
             ]
 
-            # Print extracted data (Optional)
             for row in data_rows:
                 print(row)
 
             # Save the data to a CSV file
             with open('premier_league_stats.csv', 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
-                writer.writerow(headers)  # Write the headers
-                writer.writerows(data_rows)  # Write the rows
+                writer.writerow(headers)
+                writer.writerows(data_rows)
 
             print('Data saved to premier_league_stats.csv')
         else:
             print('Table not found.')
 
-if __name__ == '__main__':
-    scrape_table()
+
+scrape_table()

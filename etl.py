@@ -5,6 +5,8 @@ from team_points import process_team_data
 from parse_understat import scrape_team_links_and_statistics
 from parse_whoscored import scrape_table
 
+# Run WhoScored
+scrape_table
 def get_team_dirs(base_dir):
     """
     Return a list of team directory names in the base directory.
@@ -169,7 +171,6 @@ def get_final_merged_df(
     """
     # Run Understat scraping (async)
     asyncio.run(scrape_team_links_and_statistics())
-
     # Process team points data
     df_tp = process_team_data(csv_file=pl_tables_csv, current_dir=os.getcwd())
 
