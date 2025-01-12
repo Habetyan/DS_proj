@@ -222,7 +222,6 @@ def get_final_merged_df(
 
     # Drop rows where 'team' is NaN and reindex
     final_merged_df = final_merged_df.dropna(subset=["team"]).reset_index(drop=True)
-    final_merged_df = final_merged_df.drop(final_merged_df.index[0]).reset_index(drop=True)
     # Fill some missing data
     final_merged_df.fillna(
         {
