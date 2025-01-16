@@ -49,7 +49,6 @@ async def parse_team_statistics_and_matches(team_url, team_name):
         decoded_json = bytes(json_text.strip("'"), "utf-8").decode("unicode_escape")
         statistics_data = json.loads(decoded_json)
 
-        # Process JSON statistics
         print("Processing statistics...")
         data_frames = {}
         for category, stats in statistics_data.items():
@@ -61,11 +60,9 @@ async def parse_team_statistics_and_matches(team_url, team_name):
             df = pd.DataFrame(rows)
             data_frames[category] = df
 
-        # Parse the table sections
         print("Parsing table sections...")
         table_sections = await parse_team_statistics_table(page)
 
-        # Extract match data
         print("Extracting match data...")
         matches = []
         calendar_selector = ".calendar-container .calendar-date-container"
@@ -96,16 +93,13 @@ async def parse_team_statistics_and_matches(team_url, team_name):
 
         match_df = pd.DataFrame(matches)
 
-        # Close the browser
         await browser.close()
 
-        # Combine data
         combined_data = {
             "json_statistics": data_frames,
             "table_sections": table_sections
         }
 
-        # Return processed data
         return combined_data, match_df
 
 
@@ -121,22 +115,18 @@ async def parse_team_statistics_table(page):
     # Wait for the table to load
     await page.wait_for_selector("table tbody tr", timeout=10000)
 
-    # Locate table headers and rows
     header_selector = "table thead tr"
     headers_list = await page.locator(header_selector).all_inner_texts()
     print(f"Headers list: {headers_list}")
 
-    # Split headers into individual column names
     headers_split = [header.split("\t") for header in headers_list]
     print(f"Split headers: {headers_split}")
 
-    # Locate all rows
     row_selector = "table tbody tr"
     rows = page.locator(row_selector)
     row_count = await rows.count()
     print(f"Number of rows: {row_count}")
 
-    # Process each table section
     sections = {}
     for section_idx, headers in enumerate(headers_split):
         print(f"Processing section {section_idx + 1} with headers: {headers}")
@@ -146,11 +136,9 @@ async def parse_team_statistics_table(page):
             row = rows.nth(i)
             cells = await row.locator("td").all_inner_texts()
 
-            # Match rows only if the number of cells matches the headers in this section
             if len(cells) == len(headers):
                 valid_rows.append(cells)
 
-        # Create a DataFrame for the section
         if valid_rows:
             section_df = pd.DataFrame(valid_rows, columns=headers)
             sections[f"section_{section_idx + 1}"] = section_df
@@ -173,24 +161,20 @@ async def scrape_team_links_and_statistics():
     league_url = 'https://understat.com/league/EPL'
 
     async with async_playwright() as p:
-        # Launch the browser
         browser = await p.chromium.launch(headless=False)
         page = await browser.new_page()
 
         print(f"Navigating to {league_url}...")
         await page.goto(league_url, timeout=180000)
 
-        # Wait for the table to load
         print("Waiting for the table to load...")
         await page.wait_for_selector("table tbody tr")
 
-        # Locate all team links
         team_links = page.locator("table tbody tr td:nth-child(2) a")
         count = await team_links.count()
         print(f"Found {count} links.")
 
-        # Process the first 20 links
-        for i in range(min(20, count)):  # Process only 20 teams
+        for i in range(min(20, count)):
             team_link = team_links.nth(i)
             team_name = await team_link.inner_text()
             team_href = await team_link.get_attribute("href")
@@ -199,12 +183,10 @@ async def scrape_team_links_and_statistics():
             print(f"Processing team: {team_name.strip()} - {team_url}")
             combined_data, match_data = await parse_team_statistics_and_matches(team_url, team_name.strip())
 
-            # Create a directory for the team
             team_dir = team_name.strip().replace(" ", "_")
             if not os.path.exists(team_dir):
                 os.makedirs(team_dir)
 
-            # Save JSON statistics data
             json_statistics = combined_data["json_statistics"]
             if json_statistics:
                 for category, df in json_statistics.items():
@@ -212,7 +194,6 @@ async def scrape_team_links_and_statistics():
                     df.to_csv(file_name, index=False)
                     print(f"Saved {file_name}")
 
-            # Save table sections
             table_sections = combined_data["table_sections"]
             if table_sections:
                 for section_name, section_df in table_sections.items():
@@ -220,13 +201,11 @@ async def scrape_team_links_and_statistics():
                     section_df.to_csv(section_file, index=False)
                     print(f"Saved {section_file}")
 
-            # Save match data
             if match_data is not None and not match_data.empty:
                 match_file_name = os.path.join(team_dir, "matches.csv")
                 match_data.to_csv(match_file_name, index=False)
                 print(f"Saved {match_file_name}")
 
-        # Close the browser
         await browser.close()
         print("Scraping complete.")
 

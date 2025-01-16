@@ -4,8 +4,9 @@ import asyncio
 from team_points import process_team_data
 from parse_understat import scrape_team_links_and_statistics
 from parse_whoscored import scrape_table
+import requests
+from bs4 import BeautifulSoup
 
-# Run WhoScored
 scrape_table
 def get_team_dirs(base_dir):
     """
@@ -107,7 +108,6 @@ def process_team_form(base_dir):
             matches_data = pd.read_csv(matches_path)
             matches_data["Date"] = pd.to_datetime(matches_data["Date"], format="%b %d, %Y")
             matches_data = matches_data.sort_values("Date")
-            # Assign points
             matches_data["points"] = matches_data.apply(
                 lambda row: 3 if (row["Home Score"] - row["Away Score"]) > 0
                 else 1 if (row["Home Score"] - row["Away Score"]) == 0
@@ -150,7 +150,6 @@ def process_all_data(base_dir):
     form_df = process_team_form(base_dir)
     squad_size_df = process_team_squad_size(base_dir)
 
-    # Merge all DataFrames on 'team' using outer join
     final_df = (
         attack_speed_df
         .merge(formation_df, on="team", how="outer")
@@ -169,12 +168,58 @@ def get_final_merged_df(
     Scrape or parse data, then process and merge everything into a final DataFrame.
     Returns final_merged_df.
     """
-    # Run Understat scraping (async)
-    asyncio.run(scrape_team_links_and_statistics())
-    # Process team points data
-    df_tp = process_team_data(csv_file=pl_tables_csv, current_dir=os.getcwd())
 
-    # Process the other team data
+    # Scrape Transfermarkt data
+    url = "https://www.transfermarkt.com/premier-league/marktwerteverein/wettbewerb/GB1"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    table = soup.find("table", {"class": "items"})
+
+    teams = []
+    market_values = []
+
+    for row in table.find("tbody").find_all("tr"):
+        team_name = row.find("td", {"class": "hauptlink no-border-links"}).text.strip()
+        market_value = row.find_all("td", {"class": "rechts"})[1].text.strip()
+        teams.append(team_name)
+        market_values.append(market_value)
+
+    transfermarkt_data = pd.DataFrame({"Team": teams, "Market_Value": market_values})
+
+    # Manual mapping of Transfermarkt names to given names
+    team_market_mapping = {
+        'arsenal': 'Arsenal FC',
+        'aston_villa': 'Aston Villa',
+        'bournemouth': 'AFC Bournemouth',
+        'brentford': 'Brentford FC',
+        'brighton': 'Brighton & Hove Albion',
+        'southampton': 'Southampton FC',
+        'chelsea': 'Chelsea FC',
+        'crystal_palace': 'Crystal Palace',
+        'everton': 'Everton FC',
+        'fulham': 'Fulham FC',
+        'liverpool': 'Liverpool FC',
+        'ipswich': 'Ipswich Town',
+        'manchester_city': 'Manchester City',
+        'manchester_united': 'Manchester United',
+        'newcastle_united': 'Newcastle United',
+        'nottingham_forest': 'Nottingham Forest',
+        'leicester': 'Leicester City',
+        'tottenham': 'Tottenham Hotspur',
+        'west_ham': 'West Ham United',
+        'wolverhampton_wanderers': 'Wolverhampton Wanderers'
+    }
+
+    transfermarkt_data["Given_Name"] = transfermarkt_data["Team"].map(
+        {v: k for k, v in team_market_mapping.items()}
+    )
+
+    # Process other data
+    asyncio.run(scrape_team_links_and_statistics())
+    df_tp = process_team_data(csv_file=pl_tables_csv, current_dir=os.getcwd())
     final_team_data = process_all_data(base_dir)
 
     team_mapping = {
@@ -185,25 +230,21 @@ def get_final_merged_df(
         "spurs": "tottenham"
     }
 
-    # Normalize team names in final_team_data
+    # Normalize team names
     final_team_data["team"] = (
         final_team_data["team"]
         .str.lower()
         .replace(team_mapping)
     )
-
-    # Normalize team names in df_tp
     df_tp["teams"] = (
         df_tp["teams"]
         .str.lower()
         .replace(team_mapping)
     )
 
-    # Merge final_team_data with df_tp
     merged_df = final_team_data.merge(df_tp, left_on="team", right_on="teams", how="outer")
     merged_df.drop(columns=["teams"], inplace=True)
 
-    # Read WhoScored data
     who_scored = pd.read_csv(who_scored_csv, encoding="utf-8", skiprows=1)
     who_scored.columns = [
         "team", "goals", "shots pg", "discipline",
@@ -217,17 +258,17 @@ def get_final_merged_df(
         .str.replace(" ", "_")
     )
 
-    # Merge with WhoScored data
     final_merged_df = merged_df.merge(who_scored, on="team", how="outer")
 
-    # Drop rows where 'team' is NaN and reindex
+    # Add market values from Transfermarkt
+    final_merged_df['Market_Value'] = final_merged_df['team'].map(
+        transfermarkt_data.set_index("Given_Name")["Market_Value"]
+    )
     final_merged_df = final_merged_df.dropna(subset=["team"]).reset_index(drop=True)
-    # Fill some missing data
     final_merged_df.fillna(
         {
             "normal_shots": 0,
             "aerialswon": 0,
-            # For 'rating', fill with the overall mean rating
             "rating": final_merged_df["rating"].mean()
         },
         inplace=True
