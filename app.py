@@ -1,23 +1,33 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from umap import UMAP
+import warnings
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 
+warnings.filterwarnings("ignore")
 
 # Load the data
 @st.cache_data
 def load_data():
     df = pd.read_csv("output.csv")
-    return df
+    df1 = pd.read_csv("last_output.csv")
+    return df,df1
 
 
-df = load_data()
+df,df1 = load_data()
 
 # --- Sidebar for Team Selection ---
 st.sidebar.header("Team Statistics")
 selected_team = st.sidebar.selectbox("Select a Team", df["team"].sort_values())
 
+
 # --- Filter data for selected team ---
 team_data = df[df["team"] == selected_team].iloc[0]  # Get the row as a Series
+team_data_changed = df1[df1["team"] == selected_team].iloc[0]  # Get the row as a Series
 
 # --- Main content ---
 st.title("Football Team Performance Analysis")
@@ -27,6 +37,8 @@ st.sidebar.subheader(f"Statistics for {selected_team}")
 
 # Basic Stats
 st.sidebar.markdown(f"**Favorite Tactics:** {team_data['favorite_tactics']}")
+st.sidebar.markdown(f"**Market Value:** {team_data_changed['Market_Value']}")
+st.sidebar.markdown(f"**Similar Teams:** {str(team_data_changed['cluster_members']).strip("[]").replace("'","")}")
 st.sidebar.markdown(f"**Squad Size:** {team_data['squad_size']}")
 st.sidebar.markdown(f"**Points (Last 5):** {team_data['points_last_5']}")
 st.sidebar.markdown(f"**Points (Last 10):** {team_data['points_last_10']}")
@@ -81,7 +93,6 @@ else:
     st.sidebar.write("No teams to compare.")
 
 # --- New Analysis and Visualizations ---
-st.header("Additional Analysis with New Data")
 
 # 1. Possession vs. Points
 fig = px.scatter(df, x="possession", y="points_last_10", color="team",
@@ -117,7 +128,8 @@ analysis_type = st.sidebar.selectbox("Select Analysis Type", [
     "Expected Goals (xG)",
     "Shot Type Distribution",
     "Tactical Analysis",
-    "Squad and Form"
+    "Squad and Form",
+    "UMAP Visualization"
 ])
 
 if analysis_type == "Shooting Efficiency":
@@ -194,3 +206,72 @@ elif analysis_type == "Squad and Form":
                  title="Points Comparison (Last 5 and Last 10 Games)")
     fig.update_xaxes(categoryorder='total descending', type='category')
     st.plotly_chart(fig)
+
+elif analysis_type == "UMAP Visualization":
+    # df = df.iloc[:, :-4]
+    st.header("UMAP Visualization of EPL Teams with K-Means Clustering")
+
+    numeric_features = df.select_dtypes(include='number')
+    numeric_features.fillna(numeric_features.mean(), inplace=True)
+
+    scaler = StandardScaler()
+    scaled_features = scaler.fit_transform(numeric_features)
+
+    # K-Means Clustering
+    num_clusters = 6
+    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+    df['Cluster'] = kmeans.fit_predict(scaled_features)
+    silhouette_avg = silhouette_score(scaled_features, df['Cluster'])
+    st.write(f"Silhouette Score: {silhouette_avg:.2f}")
+
+    # --- 3D UMAP Visualization ---
+    umap_3d = UMAP(n_components=3, random_state=42)
+    umap_embedding_3d = umap_3d.fit_transform(scaled_features)
+
+    df['UMAP_1_3d'] = umap_embedding_3d[:, 0]
+    df['UMAP_2_3d'] = umap_embedding_3d[:, 1]
+    df['UMAP_3_3d'] = umap_embedding_3d[:, 2]
+
+    fig_3d = px.scatter_3d(
+        df,
+        x='UMAP_1_3d',
+        y='UMAP_2_3d',
+        z='UMAP_3_3d',
+        color=df['Cluster'].astype(str),
+        text='team',
+        title='Clusters on Original Data Visualized in 3D with UMAP',
+        labels={'UMAP_1_3d': 'UMAP Dimension 1', 'UMAP_2_3d': 'UMAP Dimension 2', 'UMAP_3_3d': 'UMAP Dimension 3'}
+    )
+
+    fig_3d.update_traces(marker=dict(size=6, opacity=0.8))
+    fig_3d.update_layout(legend_title="Cluster")
+
+    st.plotly_chart(fig_3d)
+
+    # --- 2D UMAP Visualization ---
+    # elif analysis_type == "UMAP Visualization":
+    # ... (rest of the code is the same) ...
+
+    # --- 2D UMAP Visualization ---
+    umap_2d = UMAP(n_components=2, random_state=42)
+    umap_embedding_2d = umap_2d.fit_transform(scaled_features)
+
+    df['UMAP_1'] = umap_embedding_2d[:, 0]
+    df['UMAP_2'] = umap_embedding_2d[:, 1]
+
+    fig_2d = px.scatter(
+        df,
+        x='UMAP_1',
+        y='UMAP_2',
+        color=df['Cluster'].astype(str),
+        text='team',
+        title='Clusters on Original Data Visualized in 2D with UMAP',
+        labels={'UMAP_1': 'UMAP Dimension 1', 'UMAP_2': 'UMAP Dimension 2', 'color': 'Cluster'}
+    )
+
+    fig_2d.update_traces(marker=dict(size=6, opacity=0.8),
+                         textposition='top center')  # Position text above the point
+
+    fig_2d.update_layout(legend_title="Cluster")
+
+    st.plotly_chart(fig_2d)
